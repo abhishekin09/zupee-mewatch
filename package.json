@@ -33,12 +33,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zupee/memwatch.git"
+    "url": "https://github.com/abhishekin09/zupee-mewatch.git"
   },
   "bugs": {
-    "url": "https://github.com/zupee/memwatch/issues"
+    "url": "https://github.com/abhishekin09/zupee-mewatch/issues"
   },
-  "homepage": "https://github.com/zupee/memwatch#readme",
+  "homepage": "https://github.com/abhishekin09/zupee-mewatch#readme",
   "dependencies": {
     "ws": "^8.14.2",
     "express": "^4.18.2",
