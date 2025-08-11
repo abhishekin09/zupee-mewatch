@@ -395,11 +395,13 @@ export class MemWatchDashboard {
   }
 
   private getServicesData(): any[] {
-    return Array.from(this.services.values()).map(service => ({
-      ...service,
-      connection: undefined, // Don't serialize WebSocket connection
-      lastMetrics: this.getLastMetrics(service.name)
-    }));
+    return Array.from(this.services.values())
+      .filter(service => service.status === 'connected') // Only show connected services
+      .map(service => ({
+        ...service,
+        connection: undefined, // Don't serialize WebSocket connection
+        lastMetrics: this.getLastMetrics(service.name)
+      }));
   }
 
   private getLastMetrics(serviceName: string): MetricData | null {
