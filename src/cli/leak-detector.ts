@@ -17,28 +17,47 @@ program
   .description('Capture heap snapshots with zero downtime using pod scaling')
   .requiredOption('--container-id <id>', 'Docker container name/ID or Kubernetes pod name')
   .requiredOption('--timeframe <minutes>', 'Minutes between before and after snapshots', parseFloat)
-  .option('--dashboard-url <url>', 'Dashboard WebSocket URL', 'ws://localhost:4000')
+  .option('--dashboard-url <url>', 'Dashboard URL (HTTP or WebSocket)', 'http://localhost:4000')
   .option('--strategy <strategy>', 'Container strategy: docker or k8s', 'k8s')
   .option('--namespace <name>', 'Kubernetes namespace', 'default')
   .option('--replica-count <number>', 'Number of replicas to scale to', '2')
   .option('--service-name <name>', 'Service name for identification')
+  .option('--http', 'Use HTTP API instead of WebSocket (recommended)')
   .action(async (options) => {
     try {
       console.log('📸 Starting zero-downtime snapshot capture...\n');
       
-      const { ZeroDowntimeSnapshotCapture } = await import('../capture/zero-downtime-capture.js');
+      const useHttp = options.http || !options.dashboardUrl.startsWith('ws');
       
-      const captureController = new ZeroDowntimeSnapshotCapture({
-        containerId: options.containerId,
-        timeframe: options.timeframe,
-        dashboardUrl: options.dashboardUrl,
-        strategy: options.strategy as 'docker' | 'k8s',
-        namespace: options.namespace,
-        replicaCount: parseInt(options.replicaCount),
-        serviceName: options.serviceName || options.containerId
-      });
+      if (useHttp) {
+        // Use HTTP-based capture
+        const { executeHttpCapture } = await import('../capture/http-capture.js');
+        
+        await executeHttpCapture({
+          containerId: options.containerId,
+          timeframe: options.timeframe,
+          dashboardUrl: options.dashboardUrl,
+          strategy: options.strategy as 'docker' | 'k8s',
+          namespace: options.namespace,
+          replicaCount: parseInt(options.replicaCount),
+          serviceName: options.serviceName || options.containerId
+        });
+      } else {
+        // Use WebSocket-based capture (legacy)
+        const { ZeroDowntimeSnapshotCapture } = await import('../capture/zero-downtime-capture.js');
+        
+        const captureController = new ZeroDowntimeSnapshotCapture({
+          containerId: options.containerId,
+          timeframe: options.timeframe,
+          dashboardUrl: options.dashboardUrl,
+          strategy: options.strategy as 'docker' | 'k8s',
+          namespace: options.namespace,
+          replicaCount: parseInt(options.replicaCount),
+          serviceName: options.serviceName || options.containerId
+        });
 
-      await captureController.execute();
+        await captureController.execute();
+      }
       
     } catch (error) {
       console.error('❌ Snapshot capture failed:', error);
