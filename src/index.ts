@@ -404,3 +404,23 @@ export default agent;
 // Named exports for convenience
 export const start = (config: MemWatchConfig): void => agent.start(config);
 export const stop = (): void => agent.stop();
+
+// Export leak detection functionality
+export {
+  LeakDetectionController,
+  InContainerSnapshotTrigger,
+  createLeakDetector,
+  takeSnapshot,
+  inContainerTrigger
+} from './leak-detector.js';
+
+export {
+  HeapSnapshotAnalyzer,
+  analyzeSnapshots
+} from './analysis/snapshot-analyzer.js';
+
+export type {
+  LeakDetectorConfig,
+  SnapshotAnalysis,
+  LeakOffender
+} from './leak-detector.js';

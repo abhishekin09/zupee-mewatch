@@ -2,7 +2,16 @@
 
 🚀 **Memory Leak Detection Tool for Node.js Microservices**
 
-A comprehensive memory leak detection and monitoring system designed for Zupee's Node.js microservices. Features real-time monitoring, intelligent leak detection, and a beautiful dashboard interface.
+A comprehensive memory leak detection and monitoring system designed for Zupee's Node.js microservices. Features real-time monitoring, intelligent leak detection, automated heap snapshot analysis, and a beautiful dashboard interface.
+
+## ✨ Key Features
+
+- 📊 **Real-time Memory Monitoring** - Live tracking of heap usage, RSS, and event loop delays
+- 🔍 **Automated Leak Detection** - AI-powered algorithms to identify suspicious memory growth patterns  
+- 📸 **Zero-Downtime Heap Analysis** - Container replacement strategy for production leak analysis
+- 🌐 **Beautiful Dashboard** - React-based UI for monitoring multiple services
+- 🏗️ **CI/CD Integration** - Jenkins pipelines and automated testing
+- ⚡ **Enterprise Ready** - Docker/Kubernetes support with RBAC and security features
 
 ## 🏗️ Architecture
 
@@ -115,6 +124,44 @@ MemWatch.start({
 | `enableHeapSnapshots` | `boolean` | `false` | Generate heap snapshots on leak detection |
 | `snapshotPath` | `string` | `'./snapshots'` | Directory for heap snapshot files |
 | `historySize` | `number` | `12` | Number of readings for trend analysis |
+
+## 🖥️ CLI Commands
+
+After installing globally (`npm install -g zupee-memwatch`), you get access to powerful CLI tools:
+
+### Automated Leak Detection
+```bash
+# Docker container leak detection
+leak-detector run \
+  --container-id my-service \
+  --delay 10 \
+  --replace-strategy docker
+
+# Kubernetes pod leak detection  
+leak-detector run \
+  --container-id my-pod \
+  --delay 15 \
+  --replace-strategy k8s \
+  --namespace production \
+  --analysis-threshold 20971520
+```
+
+### Quick Analysis Tools
+```bash
+# Take heap snapshot
+leak-detector snapshot --output ./my-snapshot.heapsnapshot
+
+# Analyze snapshots for leaks
+leak-detector analyze \
+  --before ./before.heapsnapshot \
+  --after ./after.heapsnapshot \
+  --threshold 5242880
+
+# Run test scenarios
+leak-detector test --scenario leak
+```
+
+📖 **[Complete CLI Documentation →](docs/HEAP_SNAPSHOT_LEAK_DETECTION.md)**
 
 ## 🎯 Features
 
