@@ -1,5 +1,5 @@
 {
-  "name": "@zupee/memwatch",
+  "name": "zupee-memwatch",
   "version": "1.0.0",
   "description": "Memory leak detection and monitoring tool for Node.js microservices",
   "main": "dist/index.js",
