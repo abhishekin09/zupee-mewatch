@@ -11,10 +11,45 @@ program
   .description('Automated heap snapshot leak detection for Node.js containers')
   .version('1.0.0');
 
-// External controller command
+// Enhanced capture command for zero-downtime snapshot collection
+program
+  .command('capture')
+  .description('Capture heap snapshots with zero downtime using pod scaling')
+  .requiredOption('--container-id <id>', 'Docker container name/ID or Kubernetes pod name')
+  .requiredOption('--timeframe <minutes>', 'Minutes between before and after snapshots', parseFloat)
+  .option('--dashboard-url <url>', 'Dashboard WebSocket URL', 'ws://localhost:4000')
+  .option('--strategy <strategy>', 'Container strategy: docker or k8s', 'k8s')
+  .option('--namespace <name>', 'Kubernetes namespace', 'default')
+  .option('--replica-count <number>', 'Number of replicas to scale to', '2')
+  .option('--service-name <name>', 'Service name for identification')
+  .action(async (options) => {
+    try {
+      console.log('📸 Starting zero-downtime snapshot capture...\n');
+      
+      const { ZeroDowntimeSnapshotCapture } = await import('../capture/zero-downtime-capture.js');
+      
+      const captureController = new ZeroDowntimeSnapshotCapture({
+        containerId: options.containerId,
+        timeframe: options.timeframe,
+        dashboardUrl: options.dashboardUrl,
+        strategy: options.strategy as 'docker' | 'k8s',
+        namespace: options.namespace,
+        replicaCount: parseInt(options.replicaCount),
+        serviceName: options.serviceName || options.containerId
+      });
+
+      await captureController.execute();
+      
+    } catch (error) {
+      console.error('❌ Snapshot capture failed:', error);
+      process.exit(2);
+    }
+  });
+
+// External controller command (legacy)
 program
   .command('run')
-  .description('Run automated leak detection with container replacement')
+  .description('Run automated leak detection with container replacement (legacy)')
   .requiredOption('--container-id <id>', 'Docker container name/ID or Kubernetes pod name')
   .requiredOption('--delay <minutes>', 'Minutes between before and after snapshots', parseFloat)
   .option('--output-dir <path>', 'Output directory for snapshots and reports', '/tmp/leak-reports')
@@ -111,47 +146,116 @@ program
     }
   });
 
-// Analyze snapshots command
+// Analyze snapshots command with memlab support
 program
   .command('analyze')
   .description('Analyze heap snapshots for memory leaks')
   .requiredOption('--before <path>', 'Path to before snapshot')
   .requiredOption('--after <path>', 'Path to after snapshot')
   .option('--output <path>', 'Output path for analysis report', './leak-analysis.json')
-  .option('--threshold <bytes>', 'Bytes increase considered a leak', '10485760')
+  .option('--threshold <bytes>', 'Bytes increase considered a leak', '1048576') // 1MB default
+  .option('--memlab', 'Use Facebook memlab for advanced analysis (default: true)', true)
+  .option('--basic', 'Use basic analyzer instead of memlab')
   .action(async (options) => {
     try {
-      console.log('🔬 Analyzing heap snapshots...');
+      const useMemlab = options.memlab && !options.basic;
       
-      // Import the analysis engine (to be implemented)
-      const { HeapSnapshotAnalyzer } = await import('../analysis/snapshot-analyzer.js');
+      console.log(`🔬 Analyzing heap snapshots with ${useMemlab ? 'Facebook memlab' : 'basic analyzer'}...`);
       
-      const analyzer = new HeapSnapshotAnalyzer({
-        threshold: parseInt(options.threshold)
-      });
+      let analysis;
       
-      const analysis = await analyzer.compare(options.before, options.after);
+      if (useMemlab) {
+        try {
+          const { MemlabHeapAnalyzer } = await import('../analysis/memlab-analyzer.js');
+          
+          const analyzer = new MemlabHeapAnalyzer({
+            threshold: parseInt(options.threshold),
+            verbose: true,
+            outputDir: './memlab-cli-analysis'
+          });
+
+          analysis = await analyzer.analyze(options.before, options.after);
+          
+          // Display enhanced memlab results
+          console.log('\n📊 MEMLAB ANALYSIS RESULTS');
+          console.log('==========================');
+          console.log(`Memory Leaks: ${analysis.summary.totalLeaksMB.toFixed(2)} MB`);
+          console.log(`Leak Count: ${analysis.leaks.length}`);
+          console.log(`Suspicious: ${analysis.summary.suspiciousGrowth ? 'YES' : 'NO'}`);
+          console.log(`Confidence: ${(analysis.summary.confidence * 100).toFixed(1)}%`);
+          console.log(`Memory Efficiency: ${analysis.summary.memoryEfficiency.toFixed(1)}%`);
+          console.log(`Analysis Time: ${analysis.summary.analysisTime}ms`);
+          
+          if (analysis.leaks && analysis.leaks.length > 0) {
+            console.log('\n🎯 Top Memory Leaks:');
+            analysis.leaks.slice(0, 5).forEach((leak, index) => {
+              const sizeMB = (leak.retainedSize / (1024 * 1024)).toFixed(2);
+              console.log(`${index + 1}. ${leak.type} [${leak.severity.toUpperCase()}]: ${sizeMB} MB (${leak.count} objects)`);
+              // Note: leakTrace removed from simplified version
+            });
+          }
+          
+          if (analysis.allocations.topAllocators.length > 0) {
+            console.log('\n📈 Top Allocators:');
+            analysis.allocations.topAllocators.slice(0, 3).forEach((allocator, index) => {
+              const sizeMB = (allocator.size / (1024 * 1024)).toFixed(2);
+              console.log(`${index + 1}. ${allocator.name}: +${sizeMB} MB (+${allocator.count} objects)`);
+            });
+          }
+          
+          if (analysis.recommendations.length > 0) {
+            console.log('\n💡 Recommendations:');
+            analysis.recommendations.slice(0, 3).forEach((rec, index) => {
+              console.log(`${index + 1}. ${rec}`);
+            });
+          }
+          
+        } catch (memlabError) {
+          console.warn('⚠️  Memlab analysis failed, falling back to basic analyzer:', (memlabError as Error).message);
+          // Note: useMemlab is already false in this context, no need to reassign
+        }
+      }
+      
+      if (!useMemlab) {
+        const { HeapSnapshotAnalyzer } = await import('../analysis/snapshot-analyzer.js');
+        
+        const analyzer = new HeapSnapshotAnalyzer({
+          threshold: parseInt(options.threshold)
+        });
+
+        analysis = await analyzer.compare(options.before, options.after);
+        
+        // Display basic results
+        console.log('\n📊 BASIC ANALYSIS RESULTS');
+        console.log('=========================');
+        console.log(`Growth: ${analysis.summary.totalGrowthMB.toFixed(2)} MB`);
+        console.log(`Suspicious: ${analysis.summary.suspiciousGrowth ? 'YES' : 'NO'}`);
+        
+        if (analysis.offenders && analysis.offenders.length > 0) {
+          console.log('\n🎯 Top Offenders:');
+          analysis.offenders.slice(0, 5).forEach((offender, index) => {
+            console.log(`${index + 1}. ${offender.type}: +${(offender.deltaSize / (1024 * 1024)).toFixed(2)} MB`);
+          });
+        }
+      }
       
       // Save analysis
       const fs = await import('fs');
       fs.writeFileSync(options.output, JSON.stringify(analysis, null, 2));
       
-      // Print summary
-      console.log('\n📊 ANALYSIS RESULTS');
-      console.log('==================');
-      console.log(`Growth: ${analysis.summary.totalGrowthMB.toFixed(2)} MB`);
-      console.log(`Suspicious: ${analysis.summary.suspiciousGrowth ? 'YES' : 'NO'}`);
-      
-      if (analysis.offenders.length > 0) {
-        console.log('\nTop Offenders:');
-        analysis.offenders.slice(0, 3).forEach((offender, i) => {
-          console.log(`${i + 1}. ${offender.type}: +${(offender.deltaSize / (1024 * 1024)).toFixed(2)} MB`);
-        });
-      }
-      
       console.log(`\n📄 Full report: ${options.output}`);
       
-      process.exit(analysis.summary.suspiciousGrowth ? 1 : 0);
+      // Exit with appropriate code
+      if (!analysis) {
+        console.error('❌ No analysis results available');
+        process.exit(2);
+      }
+
+      const hasSuspiciousGrowth = analysis.summary.suspiciousGrowth || 
+                                 ((analysis as any).leaks && (analysis as any).leaks.length > 0) ||
+                                 ((analysis.summary as any).totalLeaksMB && (analysis.summary as any).totalLeaksMB > 1);
+      
+      process.exit(hasSuspiciousGrowth ? 1 : 0);
       
     } catch (error) {
       console.error('❌ Analysis failed:', error);

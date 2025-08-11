@@ -40,10 +40,41 @@ interface Alert {
   filepath?: string;
 }
 
+interface SnapshotData {
+  id: string;
+  serviceName: string;
+  containerId: string;
+  phase: 'before' | 'after';
+  timestamp: string;
+  size: number;
+  filename: string;
+  data?: string;
+  chunks?: string[];
+  totalChunks?: number;
+  receivedChunks?: number;
+}
+
+interface ComparisonSession {
+  id: string;
+  serviceName: string;
+  containerId: string;
+  beforeSnapshotId: string;
+  afterSnapshotId: string;
+  timeframe: number;
+  status: 'waiting' | 'analyzing' | 'completed' | 'failed';
+  result?: any;
+  createdAt: number;
+}
+
 type IncomingMessage = 
   | { type: 'registration'; service: string; timestamp: number }
   | MetricData
-  | { type: 'snapshot'; service: string; filename: string; filepath: string; timestamp: number };
+  | { type: 'snapshot'; service: string; filename: string; filepath: string; timestamp: number }
+  | { type: 'capture-agent-registration'; serviceName: string; containerId: string; timestamp: number }
+  | { type: 'snapshot-metadata'; snapshot: SnapshotData }
+  | { type: 'snapshot-chunk'; snapshotId: string; chunkIndex: number; totalChunks: number; data: string }
+  | { type: 'snapshot-complete'; snapshotId: string }
+  | { type: 'comparison-ready'; serviceName: string; containerId: string; beforeSnapshotId: string; afterSnapshotId: string; timeframe: number; timestamp: string };
 
 /**
  * MemWatch Dashboard Server
@@ -59,6 +90,9 @@ export class MemWatchDashboard {
   private metrics = new Map<string, MetricData[]>();
   private alerts: Alert[] = [];
   private dashboardClients = new Set<WebSocket>();
+  private snapshots = new Map<string, SnapshotData>();
+  private comparisonSessions = new Map<string, ComparisonSession>();
+  private alertCounter = 1;
   
   constructor() {
     this.app = express();
@@ -136,7 +170,7 @@ export class MemWatchDashboard {
   }
 
   private handleAgentMessage(ws: WebSocket, message: IncomingMessage): void {
-    const { type, service } = message;
+    const { type } = message;
 
     switch (type) {
       case 'registration':
@@ -149,6 +183,26 @@ export class MemWatchDashboard {
       
       case 'snapshot':
         this.handleSnapshot(ws, message);
+        break;
+      
+      case 'capture-agent-registration':
+        this.handleCaptureAgentRegistration(ws, message);
+        break;
+      
+      case 'snapshot-metadata':
+        this.handleSnapshotMetadata(ws, message);
+        break;
+      
+      case 'snapshot-chunk':
+        this.handleSnapshotChunk(ws, message);
+        break;
+      
+      case 'snapshot-complete':
+        this.handleSnapshotComplete(ws, message);
+        break;
+      
+      case 'comparison-ready':
+        this.handleComparisonReady(ws, message);
         break;
       
       default:
@@ -439,6 +493,296 @@ export class MemWatchDashboard {
         }
       }
     }, 30000); // Check every 30 seconds
+  }
+
+  /**
+   * Handle capture agent registration
+   */
+  private handleCaptureAgentRegistration(ws: WebSocket, message: { type: 'capture-agent-registration'; serviceName: string; containerId: string; timestamp: number }): void {
+    const { serviceName, containerId, timestamp } = message;
+    
+    console.log(`Capture agent registered: ${serviceName} (${containerId})`);
+    
+    // Store as a special service type
+    this.services.set(`capture-${serviceName}`, {
+      name: `capture-${serviceName}`,
+      status: 'connected',
+      connection: ws,
+      registeredAt: timestamp,
+      lastSeen: timestamp,
+      totalAlerts: 0
+    });
+
+    this.broadcastToClients({
+      type: 'captureAgentRegistered',
+      serviceName,
+      containerId,
+      timestamp
+    });
+  }
+
+  /**
+   * Handle snapshot metadata
+   */
+  private handleSnapshotMetadata(ws: WebSocket, message: { type: 'snapshot-metadata'; snapshot: SnapshotData }): void {
+    const { snapshot } = message;
+    
+    console.log(`Receiving snapshot metadata: ${snapshot.id} (${snapshot.phase})`);
+    
+    // Initialize snapshot with chunks array
+    this.snapshots.set(snapshot.id, {
+      ...snapshot,
+      chunks: [],
+      receivedChunks: 0
+    });
+
+    this.broadcastToClients({
+      type: 'snapshotStarted',
+      snapshot: {
+        id: snapshot.id,
+        serviceName: snapshot.serviceName,
+        phase: snapshot.phase,
+        timestamp: snapshot.timestamp,
+        size: snapshot.size
+      }
+    });
+  }
+
+  /**
+   * Handle snapshot chunk data
+   */
+  private handleSnapshotChunk(ws: WebSocket, message: { type: 'snapshot-chunk'; snapshotId: string; chunkIndex: number; totalChunks: number; data: string }): void {
+    const { snapshotId, chunkIndex, totalChunks, data } = message;
+    
+    const snapshot = this.snapshots.get(snapshotId);
+    if (!snapshot) {
+      console.error(`Snapshot not found: ${snapshotId}`);
+      return;
+    }
+
+    // Initialize chunks array if needed
+    if (!snapshot.chunks) {
+      snapshot.chunks = new Array(totalChunks);
+      snapshot.totalChunks = totalChunks;
+      snapshot.receivedChunks = 0;
+    }
+
+    // Store chunk
+    snapshot.chunks[chunkIndex] = data;
+    snapshot.receivedChunks = (snapshot.receivedChunks || 0) + 1;
+
+    // Update progress
+    const progress = (snapshot.receivedChunks / totalChunks) * 100;
+    
+    this.broadcastToClients({
+      type: 'snapshotProgress',
+      snapshotId,
+      progress: Math.round(progress),
+      receivedChunks: snapshot.receivedChunks,
+      totalChunks
+    });
+  }
+
+  /**
+   * Handle snapshot completion
+   */
+  private handleSnapshotComplete(ws: WebSocket, message: { type: 'snapshot-complete'; snapshotId: string }): void {
+    const { snapshotId } = message;
+    
+    const snapshot = this.snapshots.get(snapshotId);
+    if (!snapshot || !snapshot.chunks) {
+      console.error(`Snapshot not found or incomplete: ${snapshotId}`);
+      return;
+    }
+
+    // Combine chunks into complete data
+    snapshot.data = snapshot.chunks.join('');
+    
+    console.log(`Snapshot completed: ${snapshotId} (${snapshot.data.length} chars)`);
+
+    // Save to file
+    const fs = require('fs');
+    const path = require('path');
+    
+    const snapshotsDir = './dashboard-snapshots';
+    if (!fs.existsSync(snapshotsDir)) {
+      fs.mkdirSync(snapshotsDir, { recursive: true });
+    }
+    
+    const filepath = path.join(snapshotsDir, snapshot.filename);
+    fs.writeFileSync(filepath, snapshot.data);
+    
+    console.log(`Snapshot saved locally: ${filepath}`);
+
+    this.broadcastToClients({
+      type: 'snapshotCompleted',
+      snapshot: {
+        id: snapshot.id,
+        serviceName: snapshot.serviceName,
+        phase: snapshot.phase,
+        timestamp: snapshot.timestamp,
+        size: snapshot.size,
+        filepath
+      }
+    });
+  }
+
+  /**
+   * Handle comparison ready notification
+   */
+  private async handleComparisonReady(ws: WebSocket, message: { type: 'comparison-ready'; serviceName: string; containerId: string; beforeSnapshotId: string; afterSnapshotId: string; timeframe: number; timestamp: string }): Promise<void> {
+    const { serviceName, containerId, beforeSnapshotId, afterSnapshotId, timeframe, timestamp } = message;
+    
+    console.log(`Comparison ready for ${serviceName}: ${beforeSnapshotId} vs ${afterSnapshotId}`);
+    
+    const sessionId = `comparison_${serviceName}_${Date.now()}`;
+    
+    // Create comparison session
+    const session: ComparisonSession = {
+      id: sessionId,
+      serviceName,
+      containerId,
+      beforeSnapshotId,
+      afterSnapshotId,
+      timeframe,
+      status: 'waiting',
+      createdAt: Date.now()
+    };
+    
+    this.comparisonSessions.set(sessionId, session);
+
+    // Check if both snapshots are available
+    const beforeSnapshot = this.snapshots.get(beforeSnapshotId);
+    const afterSnapshot = this.snapshots.get(afterSnapshotId);
+    
+    if (beforeSnapshot?.data && afterSnapshot?.data) {
+      // Start analysis
+      session.status = 'analyzing';
+      
+      this.broadcastToClients({
+        type: 'comparisonStarted',
+        sessionId,
+        serviceName,
+        beforeSnapshotId,
+        afterSnapshotId
+      });
+
+      try {
+        // Perform analysis
+        const analysis = await this.performSnapshotAnalysis(beforeSnapshot, afterSnapshot);
+        
+        session.status = 'completed';
+        session.result = analysis;
+        
+        this.broadcastToClients({
+          type: 'comparisonCompleted',
+          sessionId,
+          serviceName,
+          analysis
+        });
+
+        // Create alert if leak detected
+        if (analysis.summary.suspiciousGrowth) {
+          this.alerts.push({
+            id: this.alertCounter++,
+            service: serviceName,
+            type: 'leak',
+            message: `Memory leak detected: ${analysis.summary.totalGrowthMB.toFixed(2)}MB growth`,
+            timestamp: Date.now(),
+            severity: analysis.summary.totalGrowthMB > 50 ? 'critical' : 'warning'
+          });
+        }
+        
+      } catch (error) {
+        console.error('Analysis failed:', error);
+        session.status = 'failed';
+        
+        this.broadcastToClients({
+          type: 'comparisonFailed',
+          sessionId,
+          serviceName,
+          error: (error as Error).message
+        });
+      }
+    } else {
+      this.broadcastToClients({
+        type: 'comparisonPending',
+        sessionId,
+        serviceName,
+        missingSnapshots: {
+          before: !beforeSnapshot?.data,
+          after: !afterSnapshot?.data
+        }
+      });
+    }
+  }
+
+  /**
+   * Perform snapshot analysis using Facebook's memlab
+   */
+  private async performSnapshotAnalysis(beforeSnapshot: SnapshotData, afterSnapshot: SnapshotData): Promise<any> {
+    const { MemlabHeapAnalyzer } = await import('../analysis/memlab-analyzer.js');
+    
+    // Write temporary files for analysis
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    
+    const tmpDir = os.tmpdir();
+    const beforePath = path.join(tmpDir, `before_${beforeSnapshot.id}.heapsnapshot`);
+    const afterPath = path.join(tmpDir, `after_${afterSnapshot.id}.heapsnapshot`);
+    
+    fs.writeFileSync(beforePath, beforeSnapshot.data);
+    fs.writeFileSync(afterPath, afterSnapshot.data);
+    
+    try {
+      console.log('🧪 Using Facebook memlab for advanced heap analysis...');
+      
+      const analyzer = new MemlabHeapAnalyzer({
+        threshold: 1024 * 1024, // 1MB threshold
+        verbose: false,
+        outputDir: './memlab-dashboard-analysis'
+      });
+      
+      const analysis = await analyzer.analyze(beforePath, afterPath);
+      
+      // Cleanup temp files
+      fs.unlinkSync(beforePath);
+      fs.unlinkSync(afterPath);
+      
+      console.log(`✅ Memlab analysis complete: ${analysis.leaks.length} leaks found, ${analysis.summary.totalLeaksMB.toFixed(2)}MB total`);
+      
+      return analysis;
+    } catch (error) {
+      console.warn('⚠️  Memlab analysis failed, falling back to basic analyzer:', (error as Error).message);
+      
+      // Fallback to basic analyzer
+      try {
+        const { HeapSnapshotAnalyzer } = await import('../analysis/snapshot-analyzer.js');
+        
+        const basicAnalyzer = new HeapSnapshotAnalyzer({
+          threshold: 1024 * 1024
+        });
+        
+        const analysis = await basicAnalyzer.compare(beforePath, afterPath);
+        
+        // Cleanup temp files
+        fs.unlinkSync(beforePath);
+        fs.unlinkSync(afterPath);
+        
+        return analysis;
+      } catch (fallbackError) {
+        // Cleanup temp files on error
+        try {
+          fs.unlinkSync(beforePath);
+          fs.unlinkSync(afterPath);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+        
+        throw fallbackError;
+      }
+    }
   }
 }
 

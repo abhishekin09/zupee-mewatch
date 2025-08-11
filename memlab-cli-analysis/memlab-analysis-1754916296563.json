@@ -1,0 +1,26 @@
+{
+  "summary": {
+    "totalLeaksMB": 0,
+    "leakCount": 0,
+    "suspiciousGrowth": false,
+    "confidence": 0.7,
+    "analysisTime": 232,
+    "memoryEfficiency": 100
+  },
+  "leaks": [],
+  "allocations": {
+    "topAllocators": [],
+    "growthPatterns": []
+  },
+  "recommendations": [
+    "✅ No significant memory issues detected. Memory usage appears stable.",
+    "💡 Use weak references for caches and consider object pooling for frequently allocated objects.",
+    "🔍 Enable heap profiling in production with sampling to monitor long-term trends."
+  ],
+  "metadata": {
+    "analysisTimestamp": "2025-08-11T12:44:56.562Z",
+    "beforeSnapshotSize": 4230728,
+    "afterSnapshotSize": 4231331,
+    "memlabVersion": "1.1.42"
+  }
+}

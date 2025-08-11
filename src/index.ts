@@ -414,10 +414,21 @@ export {
   inContainerTrigger
 } from './leak-detector.js';
 
+// Export zero-downtime capture functionality
+export {
+  ZeroDowntimeSnapshotCapture
+} from './capture/zero-downtime-capture.js';
+
 export {
   HeapSnapshotAnalyzer,
   analyzeSnapshots
 } from './analysis/snapshot-analyzer.js';
+
+// Export memlab analyzer
+export {
+  MemlabHeapAnalyzer,
+  analyzeWithMemlab
+} from './analysis/memlab-analyzer.js';
 
 export type {
   LeakDetectorConfig,

@@ -4,6 +4,7 @@ import MetricsChart from './components/MetricsChart';
 import AlertsPanel from './components/AlertsPanel';
 import Header from './components/Header';
 import StatsCards from './components/StatsCards';
+import SnapshotComparison from './components/SnapshotComparison';
 import './App.css';
 
 const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:4000/dashboard';
@@ -15,6 +16,7 @@ function App() {
   const [stats, setStats] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [ws, setWs] = useState(null);
+  const [activeTab, setActiveTab] = useState('monitoring');
 
   const connectWebSocket = useCallback(() => {
     const websocket = new WebSocket(WS_URL);
@@ -147,37 +149,59 @@ function App() {
     <div className="app">
       <Header connectionStatus={connectionStatus} />
       
+      {/* Tab Navigation */}
+      <div className="tab-navigation">
+        <button 
+          className={`tab-button ${activeTab === 'monitoring' ? 'active' : ''}`}
+          onClick={() => setActiveTab('monitoring')}
+        >
+          Real-time Monitoring
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'snapshots' ? 'active' : ''}`}
+          onClick={() => setActiveTab('snapshots')}
+        >
+          Snapshot Analysis
+        </button>
+      </div>
+      
       <main className="main-content">
-        <div className="dashboard-grid">
-          {/* Stats Cards */}
-          <div className="stats-section">
-            <StatsCards stats={stats} alerts={alerts} />
-          </div>
+        {activeTab === 'monitoring' && (
+          <div className="dashboard-grid">
+            {/* Stats Cards */}
+            <div className="stats-section">
+              <StatsCards stats={stats} alerts={alerts} />
+            </div>
 
-          {/* Services Table */}
-          <div className="services-section">
-            <ServiceTable 
-              services={services}
-              selectedService={selectedService}
-              onServiceSelect={setSelectedService}
-            />
-          </div>
+            {/* Services Table */}
+            <div className="services-section">
+              <ServiceTable 
+                services={services}
+                selectedService={selectedService}
+                onServiceSelect={setSelectedService}
+              />
+            </div>
 
-          {/* Metrics Chart */}
-          {selectedService && (
+            {/* Metrics Chart */}
+            {selectedService && (
             <div className="chart-section">
               <MetricsChart serviceName={selectedService} />
             </div>
           )}
 
-          {/* Alerts Panel */}
-          <div className="alerts-section">
-            <AlertsPanel 
-              alerts={selectedService ? alerts.filter(alert => alert.service === selectedService) : alerts} 
-              selectedService={selectedService}
-            />
+            {/* Alerts Panel */}
+            <div className="alerts-section">
+              <AlertsPanel 
+                alerts={selectedService ? alerts.filter(alert => alert.service === selectedService) : alerts} 
+                selectedService={selectedService}
+              />
+            </div>
           </div>
-        </div>
+        )}
+        
+        {activeTab === 'snapshots' && (
+          <SnapshotComparison websocket={ws} />
+        )}
       </main>
     </div>
   );
