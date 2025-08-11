@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Info, Clock, Download } from 'lucide-react';
 
-const AlertsPanel = ({ alerts }) => {
+const AlertsPanel = ({ alerts, selectedService }) => {
   const formatTimestamp = (timestamp) => {
     const now = Date.now();
     const diff = now - timestamp;
@@ -47,7 +47,9 @@ const AlertsPanel = ({ alerts }) => {
         <div className="empty-state">
           <div className="empty-state-title">No Alerts</div>
           <div className="empty-state-description">
-            Memory leak alerts will appear here
+            {selectedService 
+              ? `No alerts for ${selectedService}` 
+              : 'Memory leak alerts will appear here'}
           </div>
         </div>
       </div>
@@ -55,12 +57,12 @@ const AlertsPanel = ({ alerts }) => {
   }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title">
-          Alerts ({alerts.length})
-        </h2>
-      </div>
+          <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">
+            Alerts {selectedService ? `- ${selectedService}` : ''} ({alerts.length})
+          </h2>
+        </div>
       
       <div style={{ 
         maxHeight: '400px', 

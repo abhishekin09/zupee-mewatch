@@ -172,7 +172,10 @@ function App() {
 
           {/* Alerts Panel */}
           <div className="alerts-section">
-            <AlertsPanel alerts={alerts} />
+            <AlertsPanel 
+              alerts={selectedService ? alerts.filter(alert => alert.service === selectedService) : alerts} 
+              selectedService={selectedService}
+            />
           </div>
         </div>
       </main>
