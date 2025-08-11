@@ -1,6 +1,6 @@
 # 🎯 Integrating Zupee MemWatch with Gotham Service
 
-This guide shows how to integrate the `@zupee/memwatch` package with the Gotham service for memory leak monitoring.
+This guide shows how to integrate the `zupee-memwatch` package with the Gotham service for memory leak monitoring.
 
 ## 🚀 Quick Integration Steps
 
@@ -8,10 +8,10 @@ This guide shows how to integrate the `@zupee/memwatch` package with the Gotham 
 
 ```bash
 cd /Users/abhishek.rawat/tni/gotham.service
-npm install /Users/abhishek.rawat/tni/zupee-memwatch
+npm install zupee-memwatch
 ```
 
-> **Note**: Use local path for development. In production, use `npm install @zupee/memwatch` after publishing.
+> **Note**: The package is now available on NPM as `zupee-memwatch`
 
 ### 2. Add to Gotham Service
 
@@ -19,7 +19,7 @@ Edit your main entry point (likely `src/express/index.ts`):
 
 ```typescript
 // Add this import at the top
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 // Add this configuration before starting your Express server
 MemWatch.start({
@@ -86,7 +86,7 @@ Since Gotham handles game services, configure appropriately:
 
 ```typescript
 // In your game event processors
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 // Configure for game workloads
 MemWatch.start({
@@ -240,7 +240,7 @@ spec:
 
 ```typescript
 // In consumers/kafka/pucConsumer.ts
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 MemWatch.start({
   serviceName: 'gotham-puc-consumer',
@@ -255,7 +255,7 @@ MemWatch.start({
 
 ```typescript
 // In jobs/init.ts
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 MemWatch.start({
   serviceName: 'gotham-jobs',

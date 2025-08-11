@@ -1,4 +1,4 @@
-# @zupee/memwatch
+# zupee-memwatch
 
 🚀 **Memory Leak Detection Tool for Node.js Microservices**
 
@@ -44,12 +44,12 @@ A comprehensive memory leak detection and monitoring system designed for Zupee's
 
 1. **Install Package:**
    ```bash
-   npm install @zupee/memwatch
+   npm install zupee-memwatch
    ```
 
 2. **Add to Your Service:**
    ```typescript
-   import MemWatch from '@zupee/memwatch';
+   import MemWatch from 'zupee-memwatch';
 
    // Start monitoring
    MemWatch.start({
@@ -68,7 +68,7 @@ A comprehensive memory leak detection and monitoring system designed for Zupee's
 
 ### NPM Package
 ```bash
-npm install @zupee/memwatch
+npm install zupee-memwatch
 ```
 
 ### Development Setup
@@ -83,7 +83,7 @@ npm run build
 
 ### Basic Configuration
 ```typescript
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 MemWatch.start({
   serviceName: 'my-service',           // Required: Service identifier
@@ -274,7 +274,7 @@ data:
 ### Express.js Application
 ```typescript
 import express from 'express';
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 const app = express();
 
@@ -292,7 +292,7 @@ app.listen(3000, () => {
 
 ### Microservice with Custom Config
 ```typescript
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 // Start monitoring with production settings
 MemWatch.start({
@@ -314,7 +314,7 @@ process.on('SIGTERM', () => {
 
 ### Game Service Integration
 ```typescript
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 // Higher thresholds for game services
 MemWatch.start({

@@ -14,10 +14,10 @@ This guide shows how to integrate `@zupee/memwatch` into any existing Node.js re
 
 ```bash
 # Using NPM
-npm install @zupee/memwatch
+npm install zupee-memwatch
 
 # Using Yarn
-yarn add @zupee/memwatch
+yarn add zupee-memwatch
 ```
 
 ### 2. Basic Integration
@@ -25,7 +25,7 @@ yarn add @zupee/memwatch
 Add to your main application file (usually `index.js`, `app.js`, or `server.js`):
 
 ```javascript
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 // Start monitoring
 MemWatch.start({
@@ -54,7 +54,7 @@ MemWatch.start({
 ```javascript
 // server.js
 import express from 'express';
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 const app = express();
 
@@ -87,7 +87,7 @@ process.on('SIGTERM', () => {
 
 ```javascript
 // app.js
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 // Configuration from environment variables
 const config = {
@@ -109,7 +109,7 @@ console.log(`${config.serviceName} starting with MemWatch monitoring...`);
 ```javascript
 // pages/_app.js or app/layout.js
 import { useEffect } from 'react';
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 
 function MyApp({ Component, pageProps }) {
   useEffect(() => {
@@ -133,7 +133,7 @@ export default MyApp;
 
 ```typescript
 // src/index.ts
-import MemWatch, { MemWatchConfig } from '@zupee/memwatch';
+import MemWatch, { MemWatchConfig } from 'zupee-memwatch';
 
 const memwatchConfig: MemWatchConfig = {
   serviceName: 'typescript-service',
@@ -182,7 +182,7 @@ export default getMemWatchConfig;
 
 Usage:
 ```javascript
-import MemWatch from '@zupee/memwatch';
+import MemWatch from 'zupee-memwatch';
 import getMemWatchConfig from './config/memwatch.js';
 
 MemWatch.start(getMemWatchConfig());
