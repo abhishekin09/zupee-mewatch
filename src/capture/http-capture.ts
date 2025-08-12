@@ -118,6 +118,31 @@ export async function executeHttpCapture(config: HttpCaptureConfig): Promise<voi
 }
 
 /**
+ * Helper function to verify container is running by ID or name
+ */
+async function verifyContainerRunning(containerId: string): Promise<boolean> {
+  try {
+    // First try to find by name
+    let { stdout: containerStatus } = await execAsync(`docker ps --filter "name=${containerId}" --format "{{.Status}}"`);
+    
+    // If not found by name, try by ID
+    if (!containerStatus.trim()) {
+      const { stdout: containerStatusById } = await execAsync(`docker ps --filter "id=${containerId}" --format "{{.Status}}"`);
+      containerStatus = containerStatusById;
+    }
+    
+    // Check if container is running
+    if (containerStatus.trim() && containerStatus.trim().startsWith('Up')) {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * Scale up containers for zero downtime
  */
 async function scaleUpContainers(config: HttpCaptureConfig): Promise<void> {
@@ -128,9 +153,9 @@ async function scaleUpContainers(config: HttpCaptureConfig): Promise<void> {
   // First, verify the original container is running and healthy
   console.log('🔍 Verifying original container is running...');
   try {
-    const { stdout: containerStatus } = await execAsync(`docker ps --filter "name=${config.containerId}" --format "{{.Status}}"`);
-    if (!containerStatus.trim() || !containerStatus.trim().startsWith('Up')) {
-      throw new Error(`Original container ${config.containerId} is not running (status: ${containerStatus.trim()})`);
+    const isRunning = await verifyContainerRunning(config.containerId);
+    if (!isRunning) {
+      throw new Error(`Original container ${config.containerId} is not running`);
     }
     console.log(`✅ Original container ${config.containerId} is running`);
   } catch (error) {
@@ -173,9 +198,9 @@ async function takeSnapshot(config: HttpCaptureConfig, phase: 'before' | 'after'
   // Safety check: verify the original container is still running before taking snapshot
   console.log(`🔍 Verifying container ${config.containerId} is accessible before ${phase} snapshot...`);
   try {
-    const { stdout: containerStatus } = await execAsync(`docker ps --filter "name=${config.containerId}" --format "{{.Status}}"`);
-    if (!containerStatus.trim() || !containerStatus.trim().startsWith('Up')) {
-      throw new Error(`Container ${config.containerId} is not running (status: ${containerStatus.trim()}) - cannot take ${phase} snapshot`);
+    const isRunning = await verifyContainerRunning(config.containerId);
+    if (!isRunning) {
+      throw new Error(`Container ${config.containerId} is not running - cannot take ${phase} snapshot`);
     }
     console.log(`✅ Container ${config.containerId} is running, proceeding with ${phase} snapshot`);
   } catch (error) {
