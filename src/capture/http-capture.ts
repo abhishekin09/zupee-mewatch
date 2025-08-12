@@ -36,7 +36,14 @@ export async function executeHttpCapture(config: HttpCaptureConfig): Promise<voi
     console.log('✅ Dashboard is accessible');
     
     // Scale up containers for zero downtime
-    await scaleUpContainers(config);
+    console.log('🧹 About to call scaleUpContainers...');
+    try {
+      await scaleUpContainers(config);
+      console.log('✅ scaleUpContainers completed successfully');
+    } catch (error) {
+      console.error('❌ scaleUpContainers failed:', error);
+      throw error;
+    }
     
     // Take before snapshot
     console.log('📸 Taking before snapshot...');
@@ -114,6 +121,10 @@ export async function executeHttpCapture(config: HttpCaptureConfig): Promise<voi
  * Scale up containers for zero downtime
  */
 async function scaleUpContainers(config: HttpCaptureConfig): Promise<void> {
+  console.log('🚀 ENTERING scaleUpContainers function');
+  console.log(`🔍 Strategy: ${config.strategy}`);
+  console.log(`🔍 Container ID: ${config.containerId}`);
+  
   if (config.strategy === 'k8s') {
     console.log('📈 Scaling Kubernetes pods...');
     
@@ -147,6 +158,48 @@ async function scaleUpContainers(config: HttpCaptureConfig): Promise<void> {
     }
   } else {
     console.log('🐳 Scaling Docker containers...');
+    console.log('🧹 STARTING CONTAINER CLEANUP PROCESS...');
+    
+    // Clean up any existing scale containers first
+    try {
+      console.log(`🔍 Checking for existing scale containers with pattern: ${config.containerId}-scale-*`);
+      
+      // List all containers and find any that match our naming pattern
+      console.log('🔍 Executing docker ps command...');
+      const { stdout: containerList } = await execAsync('docker ps -a --format "{{.Names}}"');
+      console.log(`📋 All containers: ${containerList.trim()}`);
+      
+      const containers = containerList.trim().split('\n').filter(name => name.length > 0);
+      
+      // Find containers that match our scale pattern
+      const scaleContainers = containers.filter(name => 
+        name.startsWith(`${config.containerId}-scale-`) && 
+        /^.*-scale-\d+$/.test(name)
+      );
+      
+      console.log(`🎯 Found scale containers: ${scaleContainers.join(', ')}`);
+      
+      if (scaleContainers.length > 0) {
+        console.log(`🧹 Cleaning up ${scaleContainers.length} existing scale containers...`);
+        
+        for (const containerName of scaleContainers) {
+          try {
+            console.log(`🗑️  Removing container: ${containerName}`);
+            await execAsync(`docker rm -f ${containerName}`);
+            console.log(`✅ Cleaned up: ${containerName}`);
+          } catch (error) {
+            console.warn(`⚠️  Could not remove ${containerName}: ${error}`);
+          }
+        }
+      } else {
+        console.log('✨ No existing scale containers found to clean up');
+      }
+      
+      console.log('✅ Container cleanup completed');
+    } catch (error) {
+      console.error(`❌ Container cleanup failed: ${error}`);
+      throw error;
+    }
     
     // Get container info
     const { stdout: containerInfo } = await execAsync(`docker inspect ${config.containerId}`);
@@ -162,11 +215,23 @@ async function scaleUpContainers(config: HttpCaptureConfig): Promise<void> {
       const envArgs = env.map((envVar: string) => `-e "${envVar}"`).join(' ');
       const containerName = `${config.containerId}-scale-${i + 1}`;
       
-      await execAsync(
-        `docker run -d --name ${containerName} ${envArgs} ${image}`
-      );
-      
-      console.log(`✅ Started additional container: ${containerName}`);
+      try {
+        await execAsync(
+          `docker run -d --name ${containerName} ${envArgs} ${image}`
+        );
+        console.log(`✅ Started additional container: ${containerName}`);
+      } catch (error) {
+        console.warn(`⚠️  Failed to start ${containerName}, trying to remove and recreate...`);
+        try {
+          await execAsync(`docker rm -f ${containerName}`);
+          await execAsync(
+            `docker run -d --name ${containerName} ${envArgs} ${image}`
+          );
+          console.log(`✅ Started additional container: ${containerName} (after cleanup)`);
+        } catch (retryError) {
+          throw new Error(`Failed to start container ${containerName} even after cleanup: ${retryError}`);
+        }
+      }
     }
     
     console.log('✅ Docker containers scaled up');
@@ -185,18 +250,33 @@ async function scaleDownContainers(config: HttpCaptureConfig): Promise<void> {
   } else {
     console.log('📉 Scaling down Docker containers...');
     
-    // Remove additional containers
-    const additionalContainers = (config.replicaCount || 2) - 1;
-    
-    for (let i = 0; i < additionalContainers; i++) {
-      const containerName = `${config.containerId}-scale-${i + 1}`;
+    // Find and remove all scale containers (more robust than counting)
+    try {
+      const { stdout: containerList } = await execAsync('docker ps -a --format "{{.Names}}"');
+      const containers = containerList.trim().split('\n').filter(name => name.length > 0);
       
-      try {
-        await execAsync(`docker rm -f ${containerName}`);
-        console.log(`✅ Removed container: ${containerName}`);
-      } catch (error) {
-        console.warn(`⚠️  Could not remove ${containerName}`);
+      // Find containers that match our scale pattern
+      const scaleContainers = containers.filter(name => 
+        name.startsWith(`${config.containerId}-scale-`) && 
+        /^.*-scale-\d+$/.test(name)
+      );
+      
+      if (scaleContainers.length > 0) {
+        console.log(`🗑️  Removing ${scaleContainers.length} scale containers...`);
+        
+        for (const containerName of scaleContainers) {
+          try {
+            await execAsync(`docker rm -f ${containerName}`);
+            console.log(`✅ Removed container: ${containerName}`);
+          } catch (error) {
+            console.warn(`⚠️  Could not remove ${containerName}: ${error}`);
+          }
+        }
+      } else {
+        console.log('ℹ️  No scale containers found to remove');
       }
+    } catch (error) {
+      console.warn(`⚠️  Container cleanup check failed: ${error}`);
     }
     
     console.log('✅ Docker containers scaled down');
