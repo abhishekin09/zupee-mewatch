@@ -37,8 +37,15 @@ program
       
       // Set session ID for grouping before/after snapshots
       if (!process.env.MEMWATCH_SESSION_ID) {
-        process.env.MEMWATCH_SESSION_ID = `capture_${options.containerId}_${Date.now()}`;
-        console.log(`📁 Session ID: ${process.env.MEMWATCH_SESSION_ID}`);
+        // Generate a 3-digit unique key for this capture run
+        // This ensures before/after snapshots can be easily grouped together
+        const uniqueKey = Math.floor(Math.random() * 900) + 100; // 100-999
+        const sessionId = `run_${uniqueKey}_${options.containerId}`;
+        process.env.MEMWATCH_SESSION_ID = sessionId;
+        console.log(`📁 Session ID: ${sessionId}`);
+        console.log(`🔑 Unique Key: ${uniqueKey}`);
+        console.log(`📦 Container: ${options.containerId}`);
+        console.log(`💡 Before/after snapshots will be grouped by key: ${uniqueKey}`);
       }
 
       const useHttp = options.http || !options.dashboardUrl.startsWith('ws');
