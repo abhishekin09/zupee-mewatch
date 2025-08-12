@@ -9,7 +9,7 @@ const program = new Command();
 program
   .name('leak-detector')
   .description('Automated heap snapshot leak detection for Node.js containers')
-  .version('1.0.0');
+  .version('2.2.0');
 
 // Enhanced capture command for zero-downtime snapshot collection
 program
