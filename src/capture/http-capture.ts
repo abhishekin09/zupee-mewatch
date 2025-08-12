@@ -125,168 +125,63 @@ async function scaleUpContainers(config: HttpCaptureConfig): Promise<void> {
   console.log(`🔍 Strategy: ${config.strategy}`);
   console.log(`🔍 Container ID: ${config.containerId}`);
   
-  if (config.strategy === 'k8s') {
-    console.log('📈 Scaling Kubernetes pods...');
-    
-    // Get deployment name from pod
-    const { stdout: podInfo } = await execAsync(
-      `kubectl get pod ${config.containerId} -n ${config.namespace || 'default'} -o json`
-    );
-    
-    const pod = JSON.parse(podInfo);
-    const ownerRef = pod.metadata.ownerReferences?.find((ref: any) => ref.kind === 'ReplicaSet');
-    
-    if (ownerRef) {
-      const { stdout: rsInfo } = await execAsync(
-        `kubectl get replicaset ${ownerRef.name} -n ${config.namespace || 'default'} -o json`
-      );
-      
-      const replicaSet = JSON.parse(rsInfo);
-      const deploymentRef = replicaSet.metadata.ownerReferences?.find((ref: any) => ref.kind === 'Deployment');
-      
-      if (deploymentRef) {
-        await execAsync(
-          `kubectl scale deployment ${deploymentRef.name} -n ${config.namespace || 'default'} --replicas=${config.replicaCount || 2}`
-        );
-        
-        await execAsync(
-          `kubectl wait --for=condition=ready pod -l app=${deploymentRef.name} -n ${config.namespace || 'default'} --timeout=120s`
-        );
-        
-        console.log('✅ Kubernetes pods scaled up');
-      }
+  // First, verify the original container is running and healthy
+  console.log('🔍 Verifying original container is running...');
+  try {
+    const { stdout: containerStatus } = await execAsync(`docker ps --filter "name=${config.containerId}" --format "{{.Status}}"`);
+    if (!containerStatus.trim() || !containerStatus.trim().startsWith('Up')) {
+      throw new Error(`Original container ${config.containerId} is not running (status: ${containerStatus.trim()})`);
     }
-  } else {
-    console.log('🐳 Scaling Docker containers...');
-    console.log('🧹 STARTING CONTAINER CLEANUP PROCESS...');
-    
-    // Clean up any existing scale containers first
-    try {
-      console.log(`🔍 Checking for existing scale containers with pattern: ${config.containerId}-scale-*`);
-      
-      // List all containers and find any that match our naming pattern
-      console.log('🔍 Executing docker ps command...');
-      const { stdout: containerList } = await execAsync('docker ps -a --format "{{.Names}}"');
-      console.log(`📋 All containers: ${containerList.trim()}`);
-      
-      const containers = containerList.trim().split('\n').filter(name => name.length > 0);
-      
-      // Find containers that match our scale pattern
-      const scaleContainers = containers.filter(name => 
-        name.startsWith(`${config.containerId}-scale-`) && 
-        /^.*-scale-\d+$/.test(name)
-      );
-      
-      console.log(`🎯 Found scale containers: ${scaleContainers.join(', ')}`);
-      
-      if (scaleContainers.length > 0) {
-        console.log(`🧹 Cleaning up ${scaleContainers.length} existing scale containers...`);
-        
-        for (const containerName of scaleContainers) {
-          try {
-            console.log(`🗑️  Removing container: ${containerName}`);
-            await execAsync(`docker rm -f ${containerName}`);
-            console.log(`✅ Cleaned up: ${containerName}`);
-          } catch (error) {
-            console.warn(`⚠️  Could not remove ${containerName}: ${error}`);
-          }
-        }
-      } else {
-        console.log('✨ No existing scale containers found to clean up');
-      }
-      
-      console.log('✅ Container cleanup completed');
-    } catch (error) {
-      console.error(`❌ Container cleanup failed: ${error}`);
-      throw error;
-    }
-    
-    // Get container info
-    const { stdout: containerInfo } = await execAsync(`docker inspect ${config.containerId}`);
-    const container = JSON.parse(containerInfo)[0];
-    
-    const image = container.Config.Image;
-    const env = container.Config.Env || [];
-    
-    // Start additional containers
-    const additionalContainers = (config.replicaCount || 2) - 1;
-    
-    for (let i = 0; i < additionalContainers; i++) {
-      const envArgs = env.map((envVar: string) => `-e "${envVar}"`).join(' ');
-      const containerName = `${config.containerId}-scale-${i + 1}`;
-      
-      try {
-        await execAsync(
-          `docker run -d --name ${containerName} ${envArgs} ${image}`
-        );
-        console.log(`✅ Started additional container: ${containerName}`);
-      } catch (error) {
-        console.warn(`⚠️  Failed to start ${containerName}, trying to remove and recreate...`);
-        try {
-          await execAsync(`docker rm -f ${containerName}`);
-          await execAsync(
-            `docker run -d --name ${containerName} ${envArgs} ${image}`
-          );
-          console.log(`✅ Started additional container: ${containerName} (after cleanup)`);
-        } catch (retryError) {
-          throw new Error(`Failed to start container ${containerName} even after cleanup: ${retryError}`);
-        }
-      }
-    }
-    
-    console.log('✅ Docker containers scaled up');
+    console.log(`✅ Original container ${config.containerId} is running`);
+  } catch (error) {
+    throw new Error(`Cannot access original container ${config.containerId}: ${error}`);
   }
+  
+  // For POC purposes, skip scaling to preserve the original container
+  console.log('ℹ️  POC MODE: Skipping container scaling to preserve original container');
+  console.log('ℹ️  Original container will remain untouched throughout the process');
+  console.log('✅ Container scaling skipped (POC mode)');
+  
+  // TODO: Implement proper scaling when moving to production
+  // if (config.strategy === 'k8s') {
+  //   // Kubernetes scaling logic
+  // } else {
+  //   // Docker scaling logic
+  // }
 }
 
 /**
  * Scale down containers
  */
 async function scaleDownContainers(config: HttpCaptureConfig): Promise<void> {
-  if (config.strategy === 'k8s') {
-    console.log('📉 Scaling down Kubernetes pods...');
-    // Implementation would restore original replica count
-    // For now, log only
-    console.log('ℹ️  Kubernetes scale-down not implemented in HTTP mode');
-  } else {
-    console.log('📉 Scaling down Docker containers...');
-    
-    // Find and remove all scale containers (more robust than counting)
-    try {
-      const { stdout: containerList } = await execAsync('docker ps -a --format "{{.Names}}"');
-      const containers = containerList.trim().split('\n').filter(name => name.length > 0);
-      
-      // Find containers that match our scale pattern
-      const scaleContainers = containers.filter(name => 
-        name.startsWith(`${config.containerId}-scale-`) && 
-        /^.*-scale-\d+$/.test(name)
-      );
-      
-      if (scaleContainers.length > 0) {
-        console.log(`🗑️  Removing ${scaleContainers.length} scale containers...`);
-        
-        for (const containerName of scaleContainers) {
-          try {
-            await execAsync(`docker rm -f ${containerName}`);
-            console.log(`✅ Removed container: ${containerName}`);
-          } catch (error) {
-            console.warn(`⚠️  Could not remove ${containerName}: ${error}`);
-          }
-        }
-      } else {
-        console.log('ℹ️  No scale containers found to remove');
-      }
-    } catch (error) {
-      console.warn(`⚠️  Container cleanup check failed: ${error}`);
-    }
-    
-    console.log('✅ Docker containers scaled down');
-  }
+  // For POC purposes, skip scaling down to preserve the original container
+  console.log('ℹ️  POC MODE: Skipping container scale-down to preserve original container');
+  console.log('✅ Container scale-down skipped (POC mode)');
+  
+  // TODO: Implement proper scale-down when moving to production
+  // if (config.strategy === 'k8s') {
+  //   // Kubernetes scale-down logic
+  // } else {
+  //   // Docker scale-down logic
+  // }
 }
 
 /**
  * Take heap snapshot from container
  */
 async function takeSnapshot(config: HttpCaptureConfig, phase: 'before' | 'after'): Promise<string> {
+  // Safety check: verify the original container is still running before taking snapshot
+  console.log(`🔍 Verifying container ${config.containerId} is accessible before ${phase} snapshot...`);
+  try {
+    const { stdout: containerStatus } = await execAsync(`docker ps --filter "name=${config.containerId}" --format "{{.Status}}"`);
+    if (!containerStatus.trim() || !containerStatus.trim().startsWith('Up')) {
+      throw new Error(`Container ${config.containerId} is not running (status: ${containerStatus.trim()}) - cannot take ${phase} snapshot`);
+    }
+    console.log(`✅ Container ${config.containerId} is running, proceeding with ${phase} snapshot`);
+  } catch (error) {
+    throw new Error(`Cannot access container ${config.containerId} for ${phase} snapshot: ${error}`);
+  }
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const sessionId = process.env.MEMWATCH_SESSION_ID || `session_${Date.now()}`;
   
