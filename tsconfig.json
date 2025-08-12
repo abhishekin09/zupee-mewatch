@@ -24,6 +24,9 @@
     "node_modules",
     "dist",
     "dashboard-ui",
-    "test"
+    "test",
+    "src/analysis",
+    "src/test",
+    "src/test/**/*"
   ]
 }

@@ -419,16 +419,7 @@ export {
   ZeroDowntimeSnapshotCapture
 } from './capture/zero-downtime-capture.js';
 
-export {
-  HeapSnapshotAnalyzer,
-  analyzeSnapshots
-} from './analysis/snapshot-analyzer.js';
-
-// Export memlab analyzer
-export {
-  MemlabHeapAnalyzer,
-  analyzeWithMemlab
-} from './analysis/memlab-analyzer.js';
+// Analysis modules have been moved to the webapp. This library focuses on snapshot capture only.
 
 export type {
   LeakDetectorConfig,
