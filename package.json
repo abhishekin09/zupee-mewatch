@@ -1,6 +1,6 @@
 {
   "name": "zupee-memwatch",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Memory leak detection and monitoring tool for Node.js microservices",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
