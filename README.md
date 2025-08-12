@@ -1,441 +1,254 @@
 # zupee-memwatch
 
-🚀 **Memory Leak Detection Tool for Node.js Microservices**
+🚀 **Memory Snapshot Capture Tool for Node.js Microservices**
 
-A comprehensive memory leak detection and monitoring system designed for Zupee's Node.js microservices. Features real-time monitoring, intelligent leak detection, automated heap snapshot analysis, and a beautiful dashboard interface.
+A lightweight memory snapshot capture tool designed for Node.js microservices. Captures heap snapshots with zero downtime using container replacement strategy and uploads them to a centralized dashboard for analysis.
 
 ## ✨ Key Features
 
-- 📊 **Real-time Memory Monitoring** - Live tracking of heap usage, RSS, and event loop delays
-- 🔍 **Automated Leak Detection** - AI-powered algorithms to identify suspicious memory growth patterns  
-- 📸 **Zero-Downtime Heap Analysis** - Container replacement strategy for production leak analysis
-- 🌐 **Beautiful Dashboard** - React-based UI for monitoring multiple services
-- 🏗️ **CI/CD Integration** - Jenkins pipelines and automated testing
-- ⚡ **Enterprise Ready** - Docker/Kubernetes support with RBAC and security features
+- 📸 **Zero-Downtime Snapshot Capture** - Container replacement strategy for production snapshot capture
+- 🔄 **Simplified Workflow** - Capture snapshots with minimal flags
+- 🌐 **Dashboard Integration** - Automatic upload to centralized analysis dashboard
+- 🏗️ **Container Support** - Docker and Kubernetes container strategies
+- 📊 **Session Grouping** - Before/After snapshots are automatically paired for analysis
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    WebSocket     ┌─────────────────┐    HTTP/WS    ┌─────────────────┐
-│   Node.js App   │ ───────────────► │ Dashboard Server│ ◄─────────── │ React Dashboard │
-│  + @zupee/      │    (Metrics)     │                 │  (Real-time)  │     (Web UI)    │
-│    memwatch     │                  │                 │               │                 │
-└─────────────────┘                  └─────────────────┘               └─────────────────┘
+┌─────────────────┐    HTTP/Upload    ┌─────────────────┐    Sessions     ┌─────────────────┐
+│   CLI Capture   │ ─────────────────► │ Analysis Server │ ◄─────────────► │ React Dashboard │
+│  zupee-memwatch │   (Snapshots)     │  (webapp)       │  (Analysis UI)  │   (Web UI)      │
+└─────────────────┘                   └─────────────────┘                 └─────────────────┘
 ```
 
 ## 🚀 Quick Start
 
-### For Package Developers (Setting up the dashboard)
-
-1. **Clone and Setup:**
-   ```bash
-   git clone <repo-url>
-   cd zupee-memwatch
-   ./scripts/setup.sh
-   ```
-
-2. **Start Dashboard Server:**
-   ```bash
-   ./scripts/start-dashboard.sh
-   ```
-
-3. **Start Dashboard UI:**
-   ```bash
-   ./scripts/start-frontend.sh
-   ```
-
-4. **Test with Simulation:**
-   ```bash
-   ./scripts/start-test.sh leak
-   ```
-
-### For Service Integration (Using the package)
-
-1. **Install Package:**
-   ```bash
-   npm install zupee-memwatch
-   ```
-
-2. **Add to Your Service:**
-   ```typescript
-   import MemWatch from 'zupee-memwatch';
-
-   // Start monitoring
-   MemWatch.start({
-     serviceName: 'user-service',
-     dashboardUrl: 'ws://localhost:4000',
-     checkInterval: 10000,
-     leakThresholdMB: 50,
-     enableHeapSnapshots: true
-   });
-   ```
-
-3. **View Dashboard:**
-   Open `http://localhost:3000`
-
-## 📦 Installation
-
-### NPM Package
+### 1. Install the CLI Tool
 ```bash
-npm install zupee-memwatch
+npm install -g zupee-memwatch
 ```
 
-### Development Setup
+### 2. Capture Memory Snapshots
 ```bash
-git clone <repo-url>
-cd zupee-memwatch
-npm install
-npm run build
+# Minimal command (uses smart defaults)
+zupee-memwatch capture --container-id d71ae883f659 --timeframe 3
+
+# With custom dashboard URL
+zupee-memwatch capture \
+  --container-id d71ae883f659 \
+  --timeframe 5 \
+  --dashboard-url https://your-analysis-dashboard.com
 ```
 
-## 🔧 Configuration
+### 3. View Results
+Open your analysis dashboard to see paired before/after snapshots organized by session.
 
-### Basic Configuration
-```typescript
-import MemWatch from 'zupee-memwatch';
+## 🔧 CLI Commands
 
-MemWatch.start({
-  serviceName: 'my-service',           // Required: Service identifier
-  dashboardUrl: 'ws://localhost:4000', // Dashboard WebSocket URL
-});
-```
+### Snapshot Capture (Recommended)
 
-### Advanced Configuration
-```typescript
-MemWatch.start({
-  serviceName: 'payment-service',
-  dashboardUrl: 'ws://monitoring.zupee.com:4000',
-  checkInterval: 30000,              // Check every 30 seconds
-  leakThresholdMB: 100,              // Alert if growth > 100MB
-  enableHeapSnapshots: true,         // Generate .heapsnapshot files
-  snapshotPath: './heap-snapshots',  // Snapshot directory
-  historySize: 20                    // Trend analysis window
-});
-```
-
-### Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `serviceName` | `string` | **Required** | Unique identifier for your service |
-| `dashboardUrl` | `string` | `'ws://localhost:4000'` | WebSocket URL of dashboard server |
-| `checkInterval` | `number` | `10000` | Memory check interval in milliseconds |
-| `leakThresholdMB` | `number` | `50` | Memory growth threshold in MB |
-| `enableHeapSnapshots` | `boolean` | `false` | Generate heap snapshots on leak detection |
-| `snapshotPath` | `string` | `'./snapshots'` | Directory for heap snapshot files |
-| `historySize` | `number` | `12` | Number of readings for trend analysis |
-
-## 🖥️ CLI Commands
-
-After installing globally (`npm install -g zupee-memwatch`), you get access to powerful CLI tools:
-
-### Automated Leak Detection
+**Zero-downtime capture with automatic upload:**
 ```bash
-# Docker container leak detection
-leak-detector run \
-  --container-id my-service \
-  --delay 10 \
-  --replace-strategy docker
+# Production capture - minimal flags needed
+zupee-memwatch capture --container-id <container-id> --timeframe <minutes>
 
-# Kubernetes pod leak detection  
-leak-detector run \
-  --container-id my-pod \
-  --delay 15 \
-  --replace-strategy k8s \
-  --namespace production \
-  --analysis-threshold 20971520
+# Full command with all options
+zupee-memwatch capture \
+  --container-id d71ae883f659 \
+  --timeframe 5 \
+  --strategy docker \
+  --service-name my-service \
+  --dashboard-url https://analysis.example.com
 ```
 
-### Quick Analysis Tools
+**Command Options:**
+- `--container-id` - Target container ID (required)
+- `--timeframe` - Minutes between before/after snapshots (required)
+- `--strategy` - Container strategy: `docker` or `k8s` (default: docker)
+- `--service-name` - Service identifier (default: container-id)
+- `--dashboard-url` - Analysis dashboard URL (default: configured endpoint)
+
+### Local Snapshot
+
+**Quick local snapshot (no upload):**
 ```bash
-# Take heap snapshot
-leak-detector snapshot --output ./my-snapshot.heapsnapshot
-
-# Analyze snapshots for leaks
-leak-detector analyze \
-  --before ./before.heapsnapshot \
-  --after ./after.heapsnapshot \
-  --threshold 5242880
-
-# Run test scenarios
-leak-detector test --scenario leak
+zupee-memwatch snapshot --output ./heap.heapsnapshot
 ```
 
-📖 **[Complete CLI Documentation →](docs/HEAP_SNAPSHOT_LEAK_DETECTION.md)**
-
-## 🎯 Features
-
-### 🤖 Intelligent Leak Detection
-- **Trend Analysis**: Monitors memory growth patterns over time
-- **False Positive Reduction**: Distinguishes between normal spikes and actual leaks
-- **Configurable Thresholds**: Customize sensitivity per service
-- **Multiple Metrics**: Tracks heap usage, RSS, event loop delay
-
-### 📊 Real-time Dashboard
-- **Live Service Monitoring**: See all connected services at a glance
-- **Interactive Charts**: Detailed memory usage visualization
-- **Alert Management**: Real-time notifications and alert history
-- **Service Health**: Connection status and performance metrics
-
-### 📸 Heap Snapshot Integration
-- **Automatic Generation**: Creates snapshots when leaks are detected
-- **Chrome DevTools Compatible**: Analyze with familiar tooling
-- **Storage Management**: Configurable snapshot retention
-
-### 🔄 Production Ready
-- **Zero Dependencies**: Minimal impact on your application
-- **Auto Reconnection**: Handles network interruptions gracefully
-- **Error Handling**: Robust error recovery and logging
-- **TypeScript Support**: Full type definitions included
-
-## 🧪 Testing & Validation
-
-### Run Test Service
+**Internal snapshot (from inside container):**
 ```bash
-# Normal operation
-npm test
-
-# Simulate memory leaks
-npm run test:leak
-
-# Custom configuration
-node test/test-service.js --name=my-test --intensity=2 --simulate-leak
+zupee-memwatch internal-snapshot --file /tmp/heap.heapsnapshot
 ```
 
-### Manual Testing
-```javascript
-// In Node.js REPL or service console
-triggerLeak()  // Create major memory leak
-clearLeaks()   // Clear all simulated leaks
-```
-
-## 📈 Dashboard API
-
-### REST Endpoints
-
-#### Get All Services
-```http
-GET /api/services
-```
-
-#### Get Service Metrics
-```http
-GET /api/services/:serviceName/metrics?limit=100&from=timestamp&to=timestamp
-```
-
-#### Get Alerts
-```http
-GET /api/alerts?limit=50&service=serviceName&severity=critical
-```
-
-#### System Statistics
-```http
-GET /api/stats
-```
-
-### WebSocket Events
-
-#### Agent → Dashboard
-```typescript
-// Service registration
-{ type: 'registration', service: 'my-service', timestamp: number }
-
-// Memory metrics
-{ 
-  type: 'metrics', 
-  service: 'my-service',
-  heapUsedMB: number,
-  rssMB: number,
-  eventLoopDelayMs: number,
-  leakDetected: boolean,
-  timestamp: number
-}
-
-// Heap snapshot generated
-{ type: 'snapshot', service: 'my-service', filename: string, timestamp: number }
-```
-
-#### Dashboard → Frontend
-```typescript
-// Real-time metric updates
-{ type: 'metricsUpdate', ...metrics }
-
-// Leak alerts
-{ type: 'leakAlert', alert: Alert }
-
-// Service status changes
-{ type: 'serviceUpdate', service: string, status: string }
-```
-
-## 🔍 Leak Detection Algorithm
-
-The detection algorithm uses multiple heuristics:
-
-1. **Memory Growth Analysis**: Tracks heap usage over time
-2. **Trend Detection**: Identifies consistent upward patterns
-3. **Garbage Collection Awareness**: Distinguishes between normal spikes and leaks
-4. **Threshold Comparison**: Configurable sensitivity per service
-
-```typescript
-function detectLeak(history: MemoryPoint[], threshold: number): boolean {
-  const growth = calculateGrowth(history);
-  const trend = analyzeTrend(history);
-  
-  return growth > threshold && trend > 0.7; // 70% upward trend
-}
-```
-
-## 🏢 Production Deployment
+## ⚙️ Configuration
 
 ### Environment Variables
+
+Set defaults to reduce command flags:
+
 ```bash
-export MEMWATCH_DASHBOARD_URL=ws://monitoring.zupee.com:4000
-export MEMWATCH_CHECK_INTERVAL=30000
-export MEMWATCH_LEAK_THRESHOLD=100
+export MEMWATCH_DASHBOARD_URL=https://your-analysis-dashboard.com
+export MEMWATCH_STRATEGY=docker
+export MEMWATCH_SESSION_ID=custom-session-name
 ```
 
 ### Docker Integration
 ```dockerfile
-# In your service Dockerfile
-COPY package*.json ./
-RUN npm install
+# Install globally in your build container
+RUN npm install -g zupee-memwatch
 
-# Your app will automatically connect if configured
-ENV MEMWATCH_DASHBOARD_URL=ws://monitoring.zupee.com:4000
+# Set default dashboard
+ENV MEMWATCH_DASHBOARD_URL=https://analysis.example.com
 ```
 
-### Kubernetes ConfigMap
+### Simplified Usage
+With environment variables set:
+```bash
+# Just container ID and timeframe needed
+zupee-memwatch capture --container-id d71ae883f659 --timeframe 3
+```
+
+## 📁 File Organization
+
+Snapshots are automatically organized for easy analysis:
+
+### Local Files (CLI side)
+```
+./snapshots/
+├── d71ae883f659/
+│   ├── session_d71ae883f659_1704934567890_before_2024-01-11T10-42-47-890Z.heapsnapshot
+│   └── session_d71ae883f659_1704934567890_after_2024-01-11T10-45-47-891Z.heapsnapshot
+└── another-container/
+    └── ...
+```
+
+### Dashboard Files (Analysis server)
+```
+./dashboard-snapshots/
+├── my-service/
+│   ├── session_d71ae883f659_1704934567890_before_...
+│   └── session_d71ae883f659_1704934567890_after_...
+└── another-service/
+    └── ...
+```
+
+## 🎯 Workflow
+
+1. **Capture**: Run capture command targeting your container
+2. **Before Snapshot**: Tool takes initial heap snapshot
+3. **Wait Period**: Specified timeframe passes (e.g., 3 minutes)
+4. **After Snapshot**: Tool takes second heap snapshot
+5. **Upload**: Both snapshots automatically uploaded to dashboard
+6. **Analysis**: Use dashboard UI to compare and analyze paired snapshots
+
+## 🔍 Container Strategies
+
+### Docker Strategy (Default)
+```bash
+zupee-memwatch capture --container-id d71ae883f659 --timeframe 3 --strategy docker
+```
+- Works with Docker containers
+- Uses `docker exec` for snapshot capture
+- Suitable for local development and Docker-based deployments
+
+### Kubernetes Strategy
+```bash
+zupee-memwatch capture --container-id my-pod --timeframe 5 --strategy k8s --namespace production
+```
+- Works with Kubernetes pods
+- Uses `kubectl exec` for snapshot capture
+- Suitable for Kubernetes deployments
+
+## 📊 Session Management
+
+Snapshots are automatically grouped into sessions for easier analysis:
+
+- **Session ID**: Automatically generated timestamp-based identifier
+- **Before/After Pairing**: Snapshots from same capture run are linked
+- **Service Grouping**: Organized by service name for multi-service monitoring
+- **Custom Sessions**: Override with `MEMWATCH_SESSION_ID` environment variable
+
+## 🚀 Production Usage
+
+### Basic Production Capture
+```bash
+# Set once in your environment
+export MEMWATCH_DASHBOARD_URL=https://memory-analysis.yourcompany.com
+export MEMWATCH_STRATEGY=k8s
+
+# Simple capture command
+zupee-memwatch capture --container-id production-pod-xyz --timeframe 10
+```
+
+### Automated Monitoring
+```bash
+#!/bin/bash
+# Weekly memory capture script
+containers=("service-a-pod" "service-b-pod" "service-c-pod")
+
+for container in "${containers[@]}"; do
+  echo "Capturing $container..."
+  zupee-memwatch capture --container-id "$container" --timeframe 5
+  sleep 300  # Wait 5 minutes between captures
+done
+```
+
+### CI/CD Integration
 ```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: memwatch-config
-data:
-  dashboard-url: "ws://memwatch-dashboard.monitoring.svc.cluster.local:4000"
-  check-interval: "30000"
-  leak-threshold: "100"
+# GitHub Actions example
+- name: Memory Snapshot Capture
+  run: |
+    zupee-memwatch capture \
+      --container-id ${{ env.CONTAINER_ID }} \
+      --timeframe 3 \
+      --service-name ${{ env.SERVICE_NAME }}
 ```
-
-## 🎨 Integration Examples
-
-### Express.js Application
-```typescript
-import express from 'express';
-import MemWatch from 'zupee-memwatch';
-
-const app = express();
-
-// Start memory monitoring
-MemWatch.start({
-  serviceName: 'express-api',
-  dashboardUrl: process.env.MEMWATCH_DASHBOARD_URL,
-  leakThresholdMB: 75
-});
-
-app.listen(3000, () => {
-  console.log('Server running with MemWatch monitoring');
-});
-```
-
-### Microservice with Custom Config
-```typescript
-import MemWatch from 'zupee-memwatch';
-
-// Start monitoring with production settings
-MemWatch.start({
-  serviceName: process.env.SERVICE_NAME || 'unknown-service',
-  dashboardUrl: process.env.MEMWATCH_DASHBOARD_URL || 'ws://localhost:4000',
-  checkInterval: parseInt(process.env.MEMWATCH_INTERVAL || '30000'),
-  leakThresholdMB: parseInt(process.env.MEMWATCH_THRESHOLD || '100'),
-  enableHeapSnapshots: process.env.NODE_ENV !== 'production'
-});
-
-// Your service logic here...
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  MemWatch.stop();
-  process.exit(0);
-});
-```
-
-### Game Service Integration
-```typescript
-import MemWatch from 'zupee-memwatch';
-
-// Higher thresholds for game services
-MemWatch.start({
-  serviceName: 'ludo-game-engine',
-  dashboardUrl: 'ws://monitoring.zupee.com:4000',
-  checkInterval: 15000,           // Check every 15 seconds
-  leakThresholdMB: 200,           // Higher threshold for game logic
-  enableHeapSnapshots: true,
-  historySize: 20                 // Longer analysis window
-});
-```
-
-## 🔐 Security Considerations
-
-### Production Checklist
-- [ ] Use HTTPS/WSS for dashboard connections
-- [ ] Implement authentication for dashboard access
-- [ ] Restrict network access to monitoring infrastructure
-- [ ] Configure appropriate heap snapshot retention policies
-- [ ] Monitor the monitoring system itself
-
-### Network Security
-```typescript
-// Use secure WebSocket in production
-MemWatch.start({
-  serviceName: 'secure-service',
-  dashboardUrl: 'wss://monitoring.zupee.com:4000',
-  // ... other config
-});
-```
-
-## 📊 Metrics & Monitoring
-
-### Collected Metrics
-- **Heap Used**: Current JavaScript heap usage
-- **Heap Total**: Total heap size allocated
-- **RSS**: Resident Set Size (physical memory)
-- **External**: Memory used by C++ objects
-- **Event Loop Delay**: Node.js event loop responsiveness
-
-### Alert Types
-- **Memory Leak**: Sustained memory growth above threshold
-- **Heap Snapshot**: Snapshot generated for analysis
-- **Service Disconnect**: Service connection lost
 
 ## 🛠️ Development
 
 ### Building from Source
 ```bash
-git clone <repo-url>
+git clone https://github.com/your-org/zupee-memwatch
 cd zupee-memwatch
 npm install
 npm run build
 ```
 
-### Running Tests
+### Local Testing
 ```bash
-npm test                    # Basic test service
-npm run test:leak          # Memory leak simulation
-npm run start:dashboard    # Start dashboard server
-npm run start:frontend     # Start React UI
+# Build and test locally
+npm run build
+node dist/cli/leak-detector.js snapshot --output ./test.heapsnapshot
+
+# Test capture (requires running container)
+node dist/cli/leak-detector.js capture \
+  --container-id test-container \
+  --timeframe 0.1 \
+  --dashboard-url http://localhost:4000
 ```
 
-### Project Structure
+## 📦 Package Information
+
+- **Package Name**: `zupee-memwatch`
+- **Latest Version**: `2.0.2`
+- **Install**: `npm install -g zupee-memwatch`
+- **CLI Command**: `zupee-memwatch`
+
+## 🔄 Migration from v1.x
+
+v2.0+ focuses on snapshot capture only. Analysis features have been moved to the separate webapp:
+
+**v1.x (deprecated):**
+```bash
+leak-detector analyze --before ./before.heapsnapshot --after ./after.heapsnapshot
 ```
-zupee-memwatch/
-├── src/
-│   ├── index.ts           # Main MemWatch agent
-│   └── dashboard/
-│       └── server.ts      # Dashboard server
-├── dashboard-ui/          # React dashboard
-├── test/                  # Test services
-├── scripts/               # Setup and utility scripts
-└── dist/                  # Built TypeScript output
+
+**v2.0+ (current):**
+```bash
+# Capture snapshots
+zupee-memwatch capture --container-id xyz --timeframe 3
+
+# Analysis is done in the web dashboard
 ```
 
 ## 🤝 Contributing
@@ -452,10 +265,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/zupee/memwatch/issues)
-- **Documentation**: [GitHub Wiki](https://github.com/zupee/memwatch/wiki)
-- **Team**: Zupee Engineering Team
+- **Issues**: [GitHub Issues](https://github.com/your-org/zupee-memwatch/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/your-org/zupee-memwatch/wiki)
+- **Team**: Your Engineering Team
 
 ---
 
-Made with ❤️ by Zupee Engineering Team
+Made with ❤️ for efficient memory debugging
