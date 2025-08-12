@@ -27,21 +27,19 @@ export class HttpSnapshotClient {
     try {
       console.log(`📤 Uploading ${phase} snapshot via HTTP...`);
 
-      const snapshotData = fs.readFileSync(snapshotPath, 'utf8');
+      const snapshotData = fs.readFileSync(snapshotPath);
       const filename = path.basename(snapshotPath);
+
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      formData.append('serviceName', serviceName);
+      formData.append('containerId', containerId);
+      formData.append('phase', phase);
+      formData.append('snapshot', new Blob([snapshotData]), filename);
 
       const response = await fetch(`${this.dashboardUrl}/api/snapshots/upload`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serviceName,
-          containerId,
-          phase,
-          snapshotData,
-          filename
-        })
+        body: formData
       });
 
       const result = await response.json();
@@ -104,11 +102,11 @@ export class HttpSnapshotClient {
   }
 
   /**
-   * Simple health check
+   * Simple health check - try to access the snapshots endpoint
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.dashboardUrl}/health`);
+      const response = await fetch(`${this.dashboardUrl}/api/snapshots`);
       return response.ok;
     } catch (error) {
       return false;

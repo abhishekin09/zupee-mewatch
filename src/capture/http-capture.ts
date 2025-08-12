@@ -238,8 +238,8 @@ async function takeSnapshot(config: HttpCaptureConfig, phase: 'before' | 'after'
     fs.mkdirSync(snapshotsDir, { recursive: true });
   }
   
-  // Create single-line Node.js command
-  const snapshotCmd = `node -e "const v8=require('v8');const fs=require('fs');console.log('Taking snapshot...');const s=v8.getHeapSnapshot();const w=fs.createWriteStream('${containerPath}');s.pipe(w);w.on('finish',()=>{console.log('Done');process.exit(0)});w.on('error',(e)=>{console.error(e);process.exit(1)});"`;
+  // Create single-line Node.js command using writeHeapSnapshot
+  const snapshotCmd = `node -e "const v8=require('v8');console.log('Taking snapshot...');const snapshot=v8.writeHeapSnapshot('${containerPath}');console.log('Snapshot saved:', snapshot);"`;
   
   if (config.strategy === 'k8s') {
     await execAsync(
