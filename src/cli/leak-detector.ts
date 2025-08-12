@@ -17,8 +17,8 @@ program
   .description('Capture heap snapshots with zero downtime using pod scaling')
   .requiredOption('--container-id <id>', 'Docker container name/ID or Kubernetes pod name')
   .requiredOption('--timeframe <minutes>', 'Minutes between before and after snapshots', parseFloat)
-  .option('--dashboard-url <url>', 'Dashboard URL (HTTP or WebSocket)', 'http://localhost:4000')
-  .option('--strategy <strategy>', 'Container strategy: docker or k8s', 'k8s')
+  .option('--dashboard-url <url>', 'Dashboard URL (HTTP or WebSocket). Default can be set via MEMWATCH_DASHBOARD_URL', 'http://localhost:4000')
+  .option('--strategy <strategy>', 'Container strategy: docker or k8s (default: docker or MEMWATCH_STRATEGY)', 'docker')
   .option('--namespace <name>', 'Kubernetes namespace', 'default')
   .option('--replica-count <number>', 'Number of replicas to scale to', '2')
   .option('--service-name <name>', 'Service name for identification')
@@ -27,6 +27,20 @@ program
     try {
       console.log('📸 Starting zero-downtime snapshot capture...\n');
       
+      // Apply environment/default overrides to reduce required flags
+      const envDashboard = process.env.MEMWATCH_DASHBOARD_URL || 'https://f2f761a6fe84.ngrok-free.app';
+      if (!options.dashboardUrl || options.dashboardUrl === 'http://localhost:4000') {
+        options.dashboardUrl = envDashboard;
+      }
+      options.strategy = options.strategy || process.env.MEMWATCH_STRATEGY || 'docker';
+      options.serviceName = options.serviceName || process.env.MEMWATCH_SERVICE_NAME || options.containerId;
+      
+      // Set session ID for grouping before/after snapshots
+      if (!process.env.MEMWATCH_SESSION_ID) {
+        process.env.MEMWATCH_SESSION_ID = `capture_${options.containerId}_${Date.now()}`;
+        console.log(`📁 Session ID: ${process.env.MEMWATCH_SESSION_ID}`);
+      }
+
       const useHttp = options.http || !options.dashboardUrl.startsWith('ws');
       
       if (useHttp) {

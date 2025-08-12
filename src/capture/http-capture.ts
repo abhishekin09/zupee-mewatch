@@ -227,9 +227,10 @@ async function scaleDownContainers(config: HttpCaptureConfig): Promise<void> {
  */
 async function takeSnapshot(config: HttpCaptureConfig, phase: 'before' | 'after'): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `${phase}_${config.serviceName}_${timestamp}.heapsnapshot`;
+  const sessionId = process.env.MEMWATCH_SESSION_ID || `session_${Date.now()}`;
+  const filename = `${sessionId}_${phase}_${timestamp}.heapsnapshot`;
   const containerPath = `/tmp/${filename}`;
-  const localPath = path.resolve(`./snapshots/${filename}`);
+  const localPath = path.resolve(`./snapshots/${config.containerId}/${filename}`);
   
   // Ensure snapshots directory exists
   const snapshotsDir = path.dirname(localPath);

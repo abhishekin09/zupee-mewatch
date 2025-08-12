@@ -299,9 +299,10 @@ export class ZeroDowntimeSnapshotCapture {
       console.log(`📸 Taking ${phase} snapshot...`);
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${phase}_${this.config.serviceName}_${timestamp}.heapsnapshot`;
+      const sessionId = process.env.MEMWATCH_SESSION_ID || `session_${Date.now()}`;
+      const filename = `${sessionId}_${phase}_${timestamp}.heapsnapshot`;
       const containerPath = `/tmp/${filename}`;
-      const localPath = path.resolve(`./snapshots/${filename}`);
+      const localPath = path.resolve(`./snapshots/${this.config.containerId}/${filename}`);
       
       // Ensure snapshots directory exists
       const snapshotsDir = path.dirname(localPath);
