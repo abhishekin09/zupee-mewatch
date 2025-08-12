@@ -58,48 +58,7 @@ export class HttpSnapshotClient {
     }
   }
 
-  /**
-   * Trigger snapshot comparison via HTTP
-   */
-  async compareSnapshots(
-    serviceName: string,
-    containerId: string,
-    beforeSnapshotId: string,
-    afterSnapshotId: string,
-    timeframe: number
-  ): Promise<{ success: boolean; analysis?: any; error?: string }> {
-    try {
-      console.log(`🔬 Triggering HTTP comparison: ${beforeSnapshotId} vs ${afterSnapshotId}`);
-
-      const response = await fetch(`${this.dashboardUrl}/api/snapshots/compare`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serviceName,
-          containerId,
-          beforeSnapshotId,
-          afterSnapshotId,
-          timeframe
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Comparison failed');
-      }
-
-      console.log(`✅ Analysis complete: ${result.analysis.leakCount} leaks found, suspicious: ${result.analysis.suspiciousGrowth ? 'YES' : 'NO'}`);
-
-      return { success: true, analysis: result.analysis };
-
-    } catch (error) {
-      console.error(`❌ Failed to compare snapshots:`, error);
-      return { success: false, error: (error as Error).message };
-    }
-  }
+  // Comparison functionality removed - analysis happens on dashboard side
 
   /**
    * Simple health check - try to access the snapshots endpoint
@@ -114,30 +73,4 @@ export class HttpSnapshotClient {
   }
 }
 
-/**
- * Convenience functions for HTTP snapshot operations
- */
-export async function uploadSnapshotHttp(
-  dashboardUrl: string,
-  serviceName: string,
-  containerId: string,
-  phase: 'before' | 'after',
-  snapshotPath: string
-): Promise<string | null> {
-  const client = new HttpSnapshotClient(dashboardUrl);
-  const result = await client.uploadSnapshot(serviceName, containerId, phase, snapshotPath);
-  return result.success ? result.snapshotId! : null;
-}
-
-export async function compareSnapshotsHttp(
-  dashboardUrl: string,
-  serviceName: string,
-  containerId: string,
-  beforeSnapshotId: string,
-  afterSnapshotId: string,
-  timeframe: number = 0
-): Promise<any | null> {
-  const client = new HttpSnapshotClient(dashboardUrl);
-  const result = await client.compareSnapshots(serviceName, containerId, beforeSnapshotId, afterSnapshotId, timeframe);
-  return result.success ? result.analysis : null;
-}
+// Convenience functions removed - only upload functionality needed

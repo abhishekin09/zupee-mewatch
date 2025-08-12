@@ -74,32 +74,13 @@ export async function executeHttpCapture(config: HttpCaptureConfig): Promise<voi
       throw new Error(`Failed to upload after snapshot: ${afterUpload.error}`);
     }
     
-    // Trigger comparison
-    console.log('🔬 Triggering snapshot comparison...');
-    const comparison = await client.compareSnapshots(
-      config.serviceName,
-      config.containerId,
-      beforeUpload.snapshotId!,
-      afterUpload.snapshotId!,
-      config.timeframe
-    );
-    
-    if (!comparison.success) {
-      throw new Error(`Failed to compare snapshots: ${comparison.error}`);
-    }
-    
-    // Display results
-    console.log('\n📊 ANALYSIS RESULTS');
-    console.log('===================');
-    console.log(`Leak Count: ${comparison.analysis.leakCount}`);
-    console.log(`Suspicious Growth: ${comparison.analysis.suspiciousGrowth ? 'YES' : 'NO'}`);
-    
-    if (comparison.analysis.recommendations && comparison.analysis.recommendations.length > 0) {
-      console.log('\n💡 Recommendations:');
-      comparison.analysis.recommendations.slice(0, 3).forEach((rec: string, index: number) => {
-        console.log(`${index + 1}. ${rec}`);
-      });
-    }
+    // Display completion message
+    console.log('\n✅ SNAPSHOT CAPTURE COMPLETED');
+    console.log('================================');
+    console.log(`📸 Before snapshot: ${beforeUpload.snapshotId}`);
+    console.log(`📸 After snapshot: ${afterUpload.snapshotId}`);
+    console.log(`⏱️  Timeframe: ${config.timeframe} minutes`);
+    console.log(`🔗 View in dashboard: ${config.dashboardUrl.replace('/api', '')}`);
     
     // Scale down containers
     await scaleDownContainers(config);
